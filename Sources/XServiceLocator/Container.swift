@@ -9,14 +9,14 @@ import Foundation
 
 /// Stores the configuration on how to create instances of the registered types
 public class Container {
-    let dependency: Resolver?
+    let dependencies: [Resolver]
     let factories: [AnyServiceFactory]
 
     /// Initializes a new container with an optional child resolver
     /// - Parameter dependency: a child resolver that is used when the dependency cannot be resolved by this container.
     /// However, the container first tries to resolve the dependencies by itself
-    public init(dependency: Resolver? = nil) {
-        self.dependency = dependency
+    public init() {
+        self.dependencies = []
         self.factories = []
     }
 
@@ -24,9 +24,15 @@ public class Container {
     /// - Parameter dependency: a child resolver that is used when the dependency cannot be resolved by this container.
     /// However, the container first tries to resolve the dependencies by itself
     /// - Parameter factories: an array of already registered types.
-    init(dependency: Resolver? = nil, factories: [AnyServiceFactory]) {
-        self.dependency = dependency
+    init(dependencies: [Resolver] = [], factories: [AnyServiceFactory]) {
+        self.dependencies = dependencies
         self.factories = factories
+    }
+
+    // MARK: - Depend
+
+    public func depend(on resolver: Resolver) -> Container {
+        return .init(dependencies: dependencies + [resolver], factories: factories)
     }
 
     // MARK: - Register
@@ -48,7 +54,7 @@ public class Container {
         let newFactory = BasicServiceFactory<ServiceType>(interface, factory: { resolver in
             factory(resolver)
         })
-        return .init(dependency: dependency, factories: factories + [AnyServiceFactory(newFactory)])
+        return .init(dependencies: dependencies, factories: factories + [AnyServiceFactory(newFactory)])
     }
 }
 
@@ -63,11 +69,8 @@ extension Container: Resolver {
     /// An `Error.factoryNotFound` will be thrown in case the resolution is not possible.
     public func resolve<ServiceType>(_ type: ServiceType.Type) throws -> ServiceType {
         guard let factory = factories.first(where: { $0.supports(type) }) else {
-            guard let resolvedByDependency = try dependency?.resolve(type) else {
-                throw Container.unableToResolve(type)
-            }
-
-            return resolvedByDependency
+            guard !dependencies.isEmpty else { throw Container.unableToResolve(type) }
+            return try dependencies.resolve(type)
         }
 
         return try factory.resolve(self)

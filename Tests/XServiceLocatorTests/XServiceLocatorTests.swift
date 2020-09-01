@@ -112,7 +112,8 @@ class XServiceLocatorTests: XCTestCase {
     func test_registerInDependency_canBeResolvedByParent() {
         let expectedId = 100
         let first = Container().register(Int.self, instance: expectedId)
-        let second = Container(dependency: first)
+        let second = Container()
+            .depend(on: first)
             .register(TestProtocol.self) { resolver in TestStruct(id: try! resolver.resolve(Int.self)) }
 
         let resolvedIntByFirst = try! first.resolve(Int.self)
@@ -126,7 +127,8 @@ class XServiceLocatorTests: XCTestCase {
 
     func test_registerInDependency_isOverridenByParentWhenAccessViaParent() {
         let first = Container().register(Int.self, instance: 100)
-        let second = Container(dependency: first)
+        let second = Container()
+            .depend(on: first)
             .register(TestProtocol.self) { resolver in TestStruct(id: 150) }
             .register(Int.self, instance: 200)
 
